@@ -55,48 +55,24 @@ class ModelTransformToBlender:
         if bpy:
             mesh_count = len(self.points)
 
-            # new collection
-            obj_col = bpy.data.collections.new('4a_model')
-            context.scene.collection.children.link(obj_col)
-
             for i in range(mesh_count):
-                # mesh
-                mesh = ModelTransformToBlender.add_mesh("4a_mesh", self.points[i], self.faces[i])
-
-                # object
-                obj = bpy.data.objects.new('4a_object', mesh)
-
-                # link
-                obj_col.objects.link(obj)
+                ModelTransformToBlender.add_mesh(name="4a_mesh",
+                                                 vert=self.points[i],
+                                                 faces=self.faces[i],
+                                                 context=context)
 
     @staticmethod
-    def add_mesh(name, vert, faces):
-        faces = list(set(faces))
+    def add_mesh(name, vert, faces, context):
+        obj_col = bpy.data.collections.new(name)
+        context.scene.collection.children.link(obj_col)
 
         mesh = bpy.data.meshes.new(name)
-        bm = bmesh.new()
+        obj = bpy.data.objects.new(name, mesh)
 
-        for v_co in vert:
-            bm.verts.new(v_co)
+        obj_col.objects.link(obj)
 
-        bm.verts.ensure_lookup_table()
-
-        try:
-            for f_idx in faces:
-                bm.faces.new([bm.verts[i] for i in f_idx])
-        except ValueError:
-            pass
-
-        uv_layer = bm.loops.layers.uv.verify()
-        for face in bm.faces:
-            for loop in face.loops:
-                loop_uv = loop[uv_layer]
-                loop_uv.uv = loop.vert.co.xy
-
-        bm.to_mesh(mesh)
-        mesh.update()
-
-        return mesh
+        mesh.from_pydata(vert, [], faces)
+        mesh.update(calc_edges=True)
 
     def from_skinned_model(self, skin_model):
         skin_meshes = list(flatten(skin_model.meshes))
