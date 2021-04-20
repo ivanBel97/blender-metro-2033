@@ -6,11 +6,14 @@ Plugin for work with Game "Metro2033" formats
 2. Pack to .zip archive folder with name "io_scene_4a_engine"
 3. In blender find tab "edit" -> "preferences" -> "add-ons" -> press "import" or "add" (button in right top)
 4. In blender explorer select .zip archive
+5. Restart Blender
+6. Check tabs "Import", "Export"
+7. Enjoy :)
 
 **Status info:**
-- *Yes - all work correctly
-- *In progress - can work, but not fine
-- *In futher - will be add in futher
+- Yes - all work correctly
+- In progress - can work, but not fine
+- In futher - will be add in futher
 
 | Format   | Import status | Export status |
 | :------: | :-----------: | :-----------: |
@@ -21,8 +24,7 @@ Plugin for work with Game "Metro2033" formats
 
 **If you have any question, write into "Issues"**
 
-/RUS
-
+/RU
 # Blender плагин для работы с форматами игры "Метро 2033" [Локализация для RU]
 Плагин для удобной работы с форматами метро
 
@@ -31,11 +33,14 @@ Plugin for work with Game "Metro2033" formats
 2. Запаковать папку io_scene_4a_engine в .zip архив
 3. В Blender ищем Edit (почти в самом верху, слева) -> Preferences -> Add-ons -> Import или Add (кнопка в правом углу)
 4. В открывшимся проводнике выберите .zip архив с плагином
+5. Перезапустите Blender
+6. Во вкладках Import, Export должны появится форматы Метро 2033
+7. Радуйтесь :)
 
 **Поддерживаемые форматы:**
-- *Да - корректно работает разбор, запаковка формата*
-- *В работе - разбор, запоковка формата работает, но могут быть баги*
-- *В будущем - поддержка формата добавится в ближайших релизах*
+- Да - корректно работает разбор, запаковка формата
+- В работе - разбор, запоковка формата работает, но могут быть баги
+- В будущем - поддержка формата добавится в ближайших релизах
 
 | Формат   | Статус распаковщика | Статус запаковщика |
 | :------: | :-----------------: | :----------------: |
