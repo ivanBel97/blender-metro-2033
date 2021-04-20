@@ -4,7 +4,7 @@ Plugin for unpack metro formats
 Guide for add plugin into Blender:
 - Download latest version of blender
 - Pack to .zip archive source code
-- In blender find tab "edit" -> "preferences" -> press button "add" or "import"
+- In blender find tab "edit" -> "preferences" -> "add-ons" -> press "import" (button in right top)
 - In blender explorer select .zip archive
 
 Supports info
