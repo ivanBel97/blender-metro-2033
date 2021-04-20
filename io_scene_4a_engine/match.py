@@ -88,6 +88,12 @@ class FVec4:
         self.Z = z
         self.W = w
 
+    def division(self, div_kef):
+        self.X = self.X / div_kef
+        self.Y = self.Y / div_kef
+        self.Z = self.Z / div_kef
+        self.W = self.W / div_kef
+
     @staticmethod
     def read(rd: Reader):
         data: bytes = rd.get_bytes(16)
@@ -108,10 +114,41 @@ class UVec4S16:
         self.Z = z
         self.W = w
 
+    def division(self, div_kef):
+        self.X = int(self.X / div_kef)
+        self.Y = int(self.Y / div_kef)
+        self.Z = int(self.Z / div_kef)
+        self.W = int(self.W / div_kef)
+
     @staticmethod
     def read(rd: Reader):
         data: bytes = rd.get_bytes(8)
         x, y, z, w = struct.unpack('<HHHH', data)
+
+        return UVec4S16(x, y, z, w)
+
+class Vec4S16:
+    X: int = 0
+    Y: int = 0
+    Z: int = 0
+    W: int = 0
+
+    def __init__(self, x, y, z, w):
+        self.X = x
+        self.Y = y
+        self.Z = z
+        self.W = w
+
+    def division(self, div_kef):
+        self.X = int(self.X / div_kef)
+        self.Y = int(self.Y / div_kef)
+        self.Z = int(self.Z / div_kef)
+        self.W = int(self.W / div_kef)
+
+    @staticmethod
+    def read(rd: Reader):
+        data: bytes = rd.get_bytes(8)
+        x, y, z, w = struct.unpack('<hhhh', data)
 
         return UVec4S16(x, y, z, w)
 

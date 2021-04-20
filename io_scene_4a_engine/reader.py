@@ -49,6 +49,9 @@ class Reader:
     def get_content_path(self):
         return self.full_path[:self.full_path.find('\\meshes\\')]
 
+    def read_long(self) -> int:
+        return struct.unpack("<L", self.get_bytes(4))[0]
+
     def read_long_word(self) -> int:
         return struct.unpack("<I", self.get_bytes(4))[0]
 

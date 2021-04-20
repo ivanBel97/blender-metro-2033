@@ -1,9 +1,7 @@
-import struct
-
 from .config import *
 from .match import *
 
-from typing import List
+from typing import List, Iterable
 from dataclasses import dataclass
 from os.path import exists
 
@@ -62,13 +60,12 @@ class MaterialModel:
         m = rd.read_string()
 
         if header.version >= MODEL_VER_LL:
-            magic_num = 0
             n = rd.read_string()
 
             if header.type != MODEL_TYPE_SKINNED and header.type != MODEL_TYPE_SKINNED_MESH:
-                magic_num = struct.unpack('<I', rd.get_bytes(4))
+                magic_num = rd.read_long_word()
             else:
-                magic_num = struct.unpack('<H', rd.get_bytes(2))
+                magic_num = rd.read_word()
 
             return MaterialModel(t, s, m, n, magic_num)
         else:
@@ -77,21 +74,19 @@ class MaterialModel:
 
 @dataclass
 class VertexOne:
-    coord: FVec3
+    coord: FVec4
     uv_coord: FVec2
     normal: int = 0
-    bi_normal: int = 0
     tangent: int = 0
 
     @staticmethod
     def read(rd: Reader):
-        crd = FVec3.read(rd=rd)
-        norm = struct.unpack('<L', rd.get_bytes(4))[0]
-        bi = struct.unpack('<L', rd.get_bytes(4))[0]
-        tan = struct.unpack('<L', rd.get_bytes(4))[0]
+        crd = FVec4.read(rd=rd)
+        norm = rd.read_long()
+        tan = rd.read_long()
         uv = FVec2.read(rd=rd)
 
-        return VertexOne(crd, uv, norm, bi, tan)
+        return VertexOne(crd, uv, norm, tan)
 
 
 @dataclass
@@ -102,8 +97,8 @@ class Poly:
 
     @staticmethod
     def read(rd: Reader):
-        vert_format = struct.unpack('<I', rd.get_bytes(4))[0]
-        count = struct.unpack('<I', rd.get_bytes(4))[0]
+        vert_format = rd.read_long_word()
+        count = rd.read_long_word()
         vert = [VertexOne.read(rd=rd) for i in range(count)]
 
         return Poly(vert_format, count, vert)
@@ -115,9 +110,13 @@ class Indies:
     faces: List[UVec3S16]
 
     @staticmethod
-    def read(rd: Reader):
-        count = struct.unpack('<I', rd.get_bytes(4))[0]
-        count_faces = int(count / 3)
+    def read(rd: Reader, header: Header):
+        if header.version < MODEL_VER_ARCTIC:
+            count = rd.read_long_word()
+            count_faces = int(count / 3)
+        else:
+            count_faces = rd.read_long_word()
+            rd.read_word()  # shadow?
 
         faces = [UVec3S16.read(rd=rd) for i in range(count_faces)]
 
@@ -133,6 +132,8 @@ class SimpleModel:
 
     @staticmethod
     def read(rd: Reader):
+        rd.cursor_to_start()
+
         chunks_dates = ChunkData.get_all_chunk_data(rd=rd)
 
         h, m, v, f = (None, None, None, None)
@@ -145,7 +146,7 @@ class SimpleModel:
             if chunk_data.chunk.id == MODEL_CHUNK_VERTICES:
                 v = Poly.read(rd=chunk_data.data)
             if chunk_data.chunk.id == MODEL_CHUNK_INDICES:
-                f = Indies.read(rd=chunk_data.data)
+                f = Indies.read(rd=chunk_data.data, header=h)
 
         return SimpleModel(h, m, v, f)
 
@@ -156,7 +157,7 @@ class HierarchyModel:
 
     lod0: List[SimpleModel]
     lod1: List[SimpleModel]
-    lod2: List[SimpleModel]
+    meshes: List[SimpleModel]
 
     @staticmethod
     def read(rd: Reader):
@@ -164,35 +165,59 @@ class HierarchyModel:
 
         l0 = list()
         l1 = list()
-        l2 = list()
+        meshes = list()
 
         rd.cursor_to_start()
 
         chunks_dates = ChunkData.get_all_chunk_data(rd=rd)
 
         for chunk_data in chunks_dates:
-            if chunk_data.chunk.id == MODEL_CHUNK_HEADER and chunk_data.chunk.size == 64:
+            if chunk_data.chunk.id == MODEL_CHUNK_HEADER:
                 h = Header.read(rd=chunk_data.data)
-            elif chunk_data.chunk.id == MODEL_CHUNK_CHILD:
+
+            if chunk_data.chunk.id == MODEL_CHUNK_CHILD:
                 h_model = HierarchyModel.read(rd=chunk_data.data)
+
+                if len(h_model.meshes) > 0:
+                    meshes.append(h_model.meshes)
                 if len(h_model.lod0) > 0:
                     l0.append(h_model.lod0)
                 if len(h_model.lod1) > 0:
                     l1.append(h_model.lod1)
-                if len(h_model.lod2) > 0:
-                    l2.append(h_model.lod2)
-            elif chunk_data.chunk.id == MODEL_CHUNK_LOD0:
-                l0.append(HierarchyModel.read(rd=chunk_data.data).lod2)
-            elif chunk_data.chunk.id == MODEL_CHUNK_LOD1:
-                l1.append(HierarchyModel.read(rd=chunk_data.data).lod2)
-            elif chunk_data.chunk.id == MODEL_CHUNK_MTL_SETS:
-                print("CHUNK MTL: Will be in further...")
-            elif chunk_data.chunk.id == MODEL_CHUNK_COMMENT:
-                print("CHUNK COMMENT: Will be in further...")
-            elif (0 <= chunk_data.chunk.id < MODEL_CHUNK_MTL_SETS) and chunk_data.chunk.size > 0:
-                l2.append(SimpleModel.read(rd=chunk_data.data))
 
-        return HierarchyModel(h, l0, l1, l2)
+            if chunk_data.chunk.id == MODEL_TYPE_NORMAL:
+                meshes.append(HierarchyModel.load_meshes(rd=chunk_data.data))
+
+            if chunk_data.chunk.id == MODEL_CHUNK_LOD0:
+                h_model = HierarchyModel.read(rd=chunk_data.data)
+
+                if len(h_model.meshes) > 0:
+                    l0.append(h_model.meshes)
+                if len(h_model.lod0) > 0:
+                    l0.append(h_model.lod0)
+
+            if chunk_data.chunk.id == MODEL_CHUNK_LOD1:
+                h_model = HierarchyModel.read(rd=chunk_data.data)
+
+                if len(h_model.meshes) > 0:
+                    l1.append(h_model.meshes)
+                if len(h_model.lod1) > 0:
+                    l1.append(h_model.lod1)
+
+            l0 = list(flatten(l0))
+            l1 = list(flatten(l1))
+            meshes = list(flatten(meshes))
+
+        return HierarchyModel(h, l0, l1, meshes)
+
+    @staticmethod
+    def load_meshes(rd: Reader):
+        meshes = list()
+
+        while rd.can_read():
+            meshes.append(SimpleModel.read(rd=rd))
+
+        return meshes
 
 
 @dataclass
@@ -227,9 +252,9 @@ class VertexSkinned:
 
     @staticmethod
     def read(rd: Reader):
-        point = UVec4S16.read(rd=rd)
-        normal, tangent, bi_normal = struct.unpack('<LLL', rd.get_bytes(12))
-        bones = list(struct.unpack('<BBBB', rd.get_bytes(4)))
+        point = Vec4S16.read(rd=rd)
+        normal, tangent, bi_normal = rd.read_long(), rd.read_long(), rd.read_long()
+        bones = list(struct.unpack('<bbbb', rd.get_bytes(4)))
         weights = list(struct.unpack('<BBBB', rd.get_bytes(4)))
         uv = UVec2S16.read(rd=rd)
 
@@ -244,11 +269,10 @@ class SkinnedMesh:
     bone_obb_list: List[BonePosition]
     vertex: List[VertexSkinned]
     indies: List[UVec3S16]
-    indies_two: List[UVec3S16]
 
     @staticmethod
     def read(rd: Reader):
-        header, material, bone_id, bone_obb, vert, indies, indies_two = (None, None, None, None, None, None, None)
+        header, material, bone_id, bone_obb, vert, indies = (None, None, None, None, None, None)
         mesh_chunks = ChunkData.get_all_chunk_data(rd=rd)
 
         for mesh_chunk in mesh_chunks:
@@ -281,7 +305,12 @@ class SkinnedMesh:
                 indies = [UVec3S16.read(rd=mesh_chunk.data) for i in range(indies_length)]
                 indies_two = [UVec3S16.read(rd=mesh_chunk.data) for i in range(indies_two_length)]
 
-        return SkinnedMesh(header, material, bone_id, bone_obb, vert, indies, indies_two)
+                indies = [indies, indies_two]
+                indies = list(flatten(indies))
+
+                indies = list(set(indies))
+
+        return SkinnedMesh(header, material, bone_id, bone_obb, vert, indies)
 
 
 @dataclass
@@ -289,13 +318,11 @@ class SkinnedModel:
     meshes: List[SkinnedMesh]
 
     @staticmethod
-    def read(rd: Reader, is_back: bool = False):
-        if is_back is True:
-            rd.cursor_to_start()
+    def read(rd: Reader):
+        rd.cursor_to_start()
 
         meshes_to_add = list()
         chunks_dates = ChunkData.get_all_chunk_data(rd=rd)
-        print(chunks_dates)
 
         for chunk_data in chunks_dates:
             if chunk_data.chunk.id == MODEL_CHUNK_CHILD:
@@ -356,8 +383,10 @@ class RigModel:
     def load_meshes(rd: Reader):
         meshes = list()
 
-        while rd.can_read():
-            meshes.append(SkinnedModel.read(rd=rd))
+        models_chunks = ChunkData.get_all_chunk_data(rd=rd)
+
+        for model_chunk in models_chunks:
+            meshes.append(SkinnedModel.read(rd=model_chunk.data))
 
         return meshes
 
@@ -383,16 +412,17 @@ class RigModel:
                 limit = chunk_data.data.read_long_word()
                 meshes_name = [chunk_data.data.read_string() for i in range(limit)]
             elif chunk_data.chunk.id == MODEL_CHUNK_MESHES:
-                if Chunk.check(rd=chunk_data.data, id_to_check=0):
-                    l2.append(RigModel.load_meshes(rd=chunk_data.data))
-                elif Chunk.check(rd=chunk_data.data, id_to_check=1):
-                    l1.append(RigModel.load_meshes(rd=chunk_data.data))
-                elif Chunk.check(rd=chunk_data.data, id_to_check=2):
-                    l0.append(RigModel.load_meshes(rd=chunk_data.data))
+                models_dates = ChunkData.get_all_chunk_data(rd=chunk_data.data)
+
+                for model_data in models_dates:
+                    if model_data.chunk.id == 0:
+                        l0.append(RigModel.load_meshes(rd=model_data.data))
+                    elif model_data.chunk.id == 1:
+                        l1.append(RigModel.load_meshes(rd=model_data.data))
+                    elif model_data.chunk.id == 2:
+                        l2.append(RigModel.load_meshes(rd=model_data.data))
 
         for mesh_name in meshes_name:
-            print(mesh_name)
-
             if mesh_name != "":
                 lod0_path = fr"{rd.get_content_path()}\meshes\{mesh_name.replace(',', '')}.mesh"
                 lod1_path = fr"{rd.get_content_path()}\meshes\{mesh_name.replace(',', '')}_lod1.mesh"
@@ -412,6 +442,10 @@ class RigModel:
 
                 rig.start(skeleton_path)
                 rig.read2033()
+
+        l0 = list(flatten(l0))
+        l1 = list(flatten(l1))
+        l2 = list(flatten(l2))
 
         return RigModel(l0, l1, l2, rig)
 
@@ -438,4 +472,13 @@ def load_model(model_path: str):
     elif h.type == MODEL_TYPE_SKELETON or h.type == MODEL_TYPE_ANIMATED:
         return RigModel.read(rd=g_reader, header=h)
     elif h.type == MODEL_TYPE_SKINNED or h.type == MODEL_TYPE_SKINNED_MESH:
-        return SkinnedModel.read(rd=g_reader, is_back=True)
+        return SkinnedModel.read(rd=g_reader)
+
+
+def flatten(list_obj):
+    for item in list_obj:
+        if isinstance(item, Iterable):
+            for x in flatten(item):
+                yield x
+        else:
+            yield item
