@@ -78,7 +78,7 @@ class ModelTransformToBlender:
         skin_meshes = list(flatten(skin_model.meshes))
 
         for skin in skin_meshes:
-            self.update_model_data(skin.vertex, skin.indies)
+            self.update_model_data(skin.vertex, skin.indies, True)
 
     def from_simple_model(self, h_models):
         simple_models_list: List[SimpleModel] = list(flatten(h_models))
@@ -91,7 +91,9 @@ class ModelTransformToBlender:
 
         print("Models count is ", len(simple_models_list))
 
-    def update_model_data(self, points, faces):
+    def update_model_data(self, points, faces, is_skin=False):
+        scale_factor = 2720.0
+
         points = list(flatten(points))
         faces = list(flatten(faces))
 
@@ -101,8 +103,12 @@ class ModelTransformToBlender:
         indies = list()
 
         for vert in points:
-            vertex.append((vert.coord.X, vert.coord.Y, vert.coord.Z))
-            uv.append((vert.uv_coord.X, vert.uv_coord.Y))
+            if is_skin:
+                vertex.append((vert.coord.X / scale_factor, vert.coord.Y / scale_factor, vert.coord.Z / scale_factor))
+                uv.append((vert.uv_coord.X, vert.uv_coord.Y))
+            else:
+                vertex.append((vert.coord.X, vert.coord.Y, vert.coord.Z))
+                uv.append((vert.uv_coord.X, vert.uv_coord.Y))
 
         for face in faces:
             indies.append((face.X, face.Y, face.Z))

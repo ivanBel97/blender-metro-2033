@@ -435,14 +435,6 @@ class RigModel:
                 if exists(lod2_path):
                     l2.append(load_model(lod2_path))
 
-        if skeleton_path != "":
-            if header.version < MODEL_VER_LL:
-                skeleton_path = fr"{rd.get_content_path()}\meshes\{skeleton_path}.skeleton"
-                rig = Skeleton()
-
-                rig.start(skeleton_path)
-                rig.read2033()
-
         l0 = list(flatten(l0))
         l1 = list(flatten(l1))
         l2 = list(flatten(l2))
