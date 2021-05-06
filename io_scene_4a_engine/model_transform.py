@@ -55,23 +55,28 @@ class ModelTransformToBlender:
         if bpy:
             mesh_count = len(self.points)
 
+            obj_col = bpy.data.collections.new("4A Object")
+            context.scene.collection.children.link(obj_col)
+
             for i in range(mesh_count):
-                ModelTransformToBlender.add_mesh(name="4a_mesh",
+                ModelTransformToBlender.add_mesh(name="4A Mesh",
+                                                 obj_col=obj_col,
                                                  vert=self.points[i],
                                                  faces=self.faces[i],
                                                  context=context)
 
     @staticmethod
-    def add_mesh(name, vert, faces, context):
-        obj_col = bpy.data.collections.new(name)
-        context.scene.collection.children.link(obj_col)
-
+    def add_mesh(name, obj_col, vert, faces, context):
         mesh = bpy.data.meshes.new(name)
         obj = bpy.data.objects.new(name, mesh)
 
         obj_col.objects.link(obj)
 
         mesh.from_pydata(vert, [], faces)
+
+        mesh.use_auto_smooth = True
+
+        mesh.calc_normals()
         mesh.update(calc_edges=True)
 
     def from_skinned_model(self, skin_model):
