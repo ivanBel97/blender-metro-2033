@@ -76,7 +76,11 @@ class ModelTransformToBlender:
 
         for i in range(0, vertex_count):
             bm.verts.new(vertex[i])
-            normals2.append(normals[i])
+            normals2.append((
+                self.calc_normal(normals[i][0]),
+                self.calc_normal(normals[i][1]),
+                self.calc_normal(normals[i][2])
+            ))
 
         bm.verts.ensure_lookup_table()
         bm.verts.index_update()
@@ -99,6 +103,9 @@ class ModelTransformToBlender:
         mesh.normals_split_custom_set_from_vertices(normals2)
 
         mesh.update()
+
+    def calc_normal(self, normal):
+        return 2.0 * normal - 1.0
 
     def from_skinned_model(self, skin_model):
         skin_meshes = list(flatten(skin_model.meshes))
