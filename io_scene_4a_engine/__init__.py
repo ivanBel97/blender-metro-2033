@@ -1,8 +1,8 @@
 bl_info = {
     "name": "BLI2033",
     "description": "Addon for import meshes, models from Metro 2033",
-    "author": "ArkYT, Madera",
-    "version": (0, 12),
+    "author": "ArkYT, Modera, sk1nzz",
+    "version": (0, 46),
     "blender": (2, 80, 0),
     "location": "File > Import",
     "support": "COMMUNITY",

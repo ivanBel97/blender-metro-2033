@@ -20,7 +20,7 @@ class ModelImporter(bpy.types.Operator, bpy_extras.io_utils.ImportHelper):
         model_path = self.filepath
 
         model_importer = ModelTransformToBlender(model_path)
-        model_importer.render_model(context)
+        model_importer.render_model(context, self)
 
         return {'FINISHED'}
 

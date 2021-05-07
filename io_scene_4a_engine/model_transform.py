@@ -1,3 +1,5 @@
+import math
+
 from .model import *
 from typing import List, Iterable
 
@@ -14,13 +16,14 @@ except ImportError:
 class ModelTransformToBlender:
     points: List[List[tuple]]
     uv_map: List[List[tuple]]
+    normals: List[List[tuple]]
 
     faces: List[List[tuple]]
 
     def __init__(self, model_path: str):
         res = load_model(model_path)
 
-        self.points, self.uv_map, self.faces = [list(), list(), list()]
+        self.points, self.uv_map, self.normals, self.faces = [list(), list(), list(), list()]
 
         if type(res) is SimpleModel:
             self.from_simple_model(res)
@@ -51,33 +54,51 @@ class ModelTransformToBlender:
                 for skin_model in res.lod2:
                     self.from_skinned_model(skin_model)
 
-    def render_model(self, context):
+    def render_model(self, context, operator):
         if bpy:
             mesh_count = len(self.points)
 
-            obj_col = bpy.data.collections.new("4A Object")
+            obj_col = bpy.data.collections.new("4a_hierarchy")
             context.scene.collection.children.link(obj_col)
 
             for i in range(mesh_count):
-                ModelTransformToBlender.add_mesh(name="4A Mesh",
-                                                 obj_col=obj_col,
-                                                 vert=self.points[i],
-                                                 faces=self.faces[i],
-                                                 context=context)
+                self.add_mesh("4a_mesh", self.points[i], self.faces[i], self.normals[i], obj_col)
 
-    @staticmethod
-    def add_mesh(name, obj_col, vert, faces, context):
+    def add_mesh(self, name, vertex, faces, normals, col):
+        normals2 = []
+        vertex_count = len(vertex)
+
         mesh = bpy.data.meshes.new(name)
-        obj = bpy.data.objects.new(name, mesh)
+        obj = bpy.data.objects.new(mesh.name, mesh)
+        col.objects.link(obj)
 
-        obj_col.objects.link(obj)
+        bm = bmesh.new()
 
-        mesh.from_pydata(vert, [], faces)
+        for i in range(0, vertex_count):
+            bm.verts.new(vertex[i])
+            normals2.append((-normals[i][0], -normals[i][1], -normals[i][2]))
 
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+
+        for idx in faces:
+            try:
+                face = bm.faces.new([bm.verts[i] for i in idx])
+                face.smooth = True
+            except ValueError:  # Face already exist
+                pass
+
+        bm.faces.ensure_lookup_table()
+        bm.normal_update()
+
+        bm.to_mesh(mesh)
+
+        mesh.auto_smooth_angle = math.pi
         mesh.use_auto_smooth = True
 
-        mesh.calc_normals()
-        mesh.update(calc_edges=True)
+        mesh.normals_split_custom_set_from_vertices(normals2)
+
+        mesh.update()
 
     def from_skinned_model(self, skin_model):
         skin_meshes = list(flatten(skin_model.meshes))
@@ -94,8 +115,6 @@ class ModelTransformToBlender:
 
             self.update_model_data(vertex, indies)
 
-        print("Models count is ", len(simple_models_list))
-
     def update_model_data(self, points, faces, is_skin=False):
         scale_factor = 2720.0
 
@@ -103,6 +122,7 @@ class ModelTransformToBlender:
         faces = list(flatten(faces))
 
         vertex = list()
+        normal = list()
         uv = list()
 
         indies = list()
@@ -115,10 +135,29 @@ class ModelTransformToBlender:
                 vertex.append((vert.coord.X, vert.coord.Y, vert.coord.Z))
                 uv.append((vert.uv_coord.X, vert.uv_coord.Y))
 
+            normal.append((((vert.normal << 16) & 0xFF) / 255.0,
+                           ((vert.normal << 8) & 0xFF) / 255.0,
+                           (vert.normal & 0xFF) / 255.0))
+
         for face in faces:
             indies.append((face.X, face.Y, face.Z))
 
+        normal = self.normalize_normal(normal)
+
+        self.normals.append(normal)
         self.points.append(vertex)
         self.uv_map.append(uv)
 
         self.faces.append(indies)
+
+    def normalize_normal(self, normals: List[tuple]):
+        normals2 = list()
+
+        for normal in normals:
+            length = math.sqrt(float(normal[0] ** 2) + float(normal[1] ** 2) + float(normal[2] ** 2))
+            if length > 0:
+                normals2.append((normal[0] / length, normal[1] / length, normal[2] / length))
+            else:
+                normals2.append((normal[0], normal[1], normal[2]))
+
+        return normals
