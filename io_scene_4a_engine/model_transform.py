@@ -98,7 +98,6 @@ class ModelTransformToBlender:
         bm.to_mesh(mesh)
 
         uv_layer = bm.loops.layers.uv.new('4A Texture')
-        bm.faces.layers.tex.verify()
 
         for f in bm.faces:
             for loop in f.loops:
