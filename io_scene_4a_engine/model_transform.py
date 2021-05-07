@@ -62,9 +62,9 @@ class ModelTransformToBlender:
             context.scene.collection.children.link(obj_col)
 
             for i in range(mesh_count):
-                self.add_mesh("4a_mesh", self.points[i], self.faces[i], self.normals[i], obj_col)
+                self.add_mesh("4a_mesh", self.points[i], self.faces[i], self.normals[i], self.uv_map[i], obj_col)
 
-    def add_mesh(self, name, vertex, faces, normals, col):
+    def add_mesh(self, name, vertex, faces, normals, uv_map, col):
         normals2 = []
         vertex_count = len(vertex)
 
@@ -97,6 +97,14 @@ class ModelTransformToBlender:
 
         bm.to_mesh(mesh)
 
+        uv_layer = bm.loops.layers.uv.new('4A Texture')
+        bm.faces.layers.tex.verify()
+
+        for f in bm.faces:
+            for loop in f.loops:
+                luv = loop[uv_layer]
+                luv.uv = uv_map[loop.vert.index]
+
         mesh.auto_smooth_angle = math.pi
         mesh.use_auto_smooth = True
 
@@ -124,6 +132,7 @@ class ModelTransformToBlender:
 
     def update_model_data(self, points, faces, is_skin=False):
         scale_factor = 2720.0
+        uv_factor = 2048.0
 
         points = list(flatten(points))
         faces = list(flatten(faces))
@@ -137,7 +146,7 @@ class ModelTransformToBlender:
         for vert in points:
             if is_skin:
                 vertex.append((vert.coord.X / scale_factor, vert.coord.Y / scale_factor, vert.coord.Z / scale_factor))
-                uv.append((vert.uv_coord.X, vert.uv_coord.Y))
+                uv.append((vert.uv_coord.X / uv_factor, vert.uv_coord.Y / uv_factor))
             else:
                 vertex.append((vert.coord.X, vert.coord.Y, vert.coord.Z))
                 uv.append((vert.uv_coord.X, vert.uv_coord.Y))
