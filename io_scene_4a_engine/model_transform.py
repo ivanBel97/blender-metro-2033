@@ -76,7 +76,7 @@ class ModelTransformToBlender:
 
         for i in range(0, vertex_count):
             bm.verts.new(vertex[i])
-            normals2.append((-normals[i][0], -normals[i][1], -normals[i][2]))
+            normals2.append(normals[i])
 
         bm.verts.ensure_lookup_table()
         bm.verts.index_update()
