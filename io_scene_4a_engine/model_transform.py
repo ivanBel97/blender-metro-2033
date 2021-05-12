@@ -123,15 +123,18 @@ class ModelTransformToBlender:
 
         mesh.normals_split_custom_set_from_vertices([
             (
-                normals[vert.index][0],  # X normal
-                normals[vert.index][2],  # Z normal
-                normals[vert.index][1]   # Y normal
+                self.calc_normals(normals[vert.index][0]),  # X normal
+                self.calc_normals(normals[vert.index][2]),  # Z normal
+                self.calc_normals(normals[vert.index][1])   # Y normal
              ) for vert in bm.verts])
 
         mesh.update()
 
         # set material
         self.set_material(obj, material_data[0], material_data[2])
+
+    def calc_normals(self, normal):
+        return (2 * normal) - 1
 
     def set_material(self, obj, texture_path, material_type):
         texture_path_dds = ""
