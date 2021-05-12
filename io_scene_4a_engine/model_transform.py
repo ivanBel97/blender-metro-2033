@@ -121,7 +121,12 @@ class ModelTransformToBlender:
         mesh.auto_smooth_angle = math.pi
         mesh.use_auto_smooth = True
 
-        mesh.normals_split_custom_set_from_vertices(normals)
+        mesh.normals_split_custom_set_from_vertices([
+            (
+                normals[vert.index][0],  # X normal
+                normals[vert.index][2],  # Z normal
+                normals[vert.index][1]   # Y normal
+             ) for vert in bm.verts])
 
         mesh.update()
 
