@@ -1,7 +1,7 @@
-from model_transform import ModelTransformToBlender
+from texture_tool import DDSUtils
 
 
-path = input("Model filepath: ")
-trans = ModelTransformToBlender(path)
+texture_path = input("Введите путь к текстуре: ")
+dds_path = DDSUtils.convert_texture(texture_path)
 
-print(trans.normals)
+print(f"Всё сохранилось по пути в {dds_path}")
