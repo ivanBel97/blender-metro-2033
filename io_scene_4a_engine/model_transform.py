@@ -134,7 +134,7 @@ class ModelTransformToBlender:
         self.set_material(obj, material_data[0], material_data[2])
 
     def calc_normals(self, normal):
-        return (2 * normal) - 1
+        return 2.0 * normal / 255 - 1.0
 
     def set_material(self, obj, texture_path, material_type):
         texture_path_dds = ""
